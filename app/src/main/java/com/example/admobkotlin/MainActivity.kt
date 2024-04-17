@@ -1,7 +1,9 @@
 package com.example.admobkotlin
 
 
+import android.content.Intent
 import android.os.Bundle
+import android.util.Log
 import android.widget.Toast
 import androidx.activity.enableEdgeToEdge
 import androidx.appcompat.app.AppCompatActivity
@@ -12,12 +14,15 @@ import com.google.android.gms.ads.AdListener
 import com.google.android.gms.ads.AdRequest
 import com.google.android.gms.ads.LoadAdError
 import com.google.android.gms.ads.MobileAds
+import com.google.android.gms.ads.interstitial.InterstitialAd
+import com.google.android.gms.ads.interstitial.InterstitialAdLoadCallback
 import com.google.android.material.snackbar.Snackbar
 import com.google.android.ump.ConsentDebugSettings
 import com.google.android.ump.ConsentInformation
 import com.google.android.ump.ConsentRequestParameters
 import com.google.android.ump.UserMessagingPlatform
 import java.util.concurrent.atomic.AtomicBoolean
+import com.google.android.gms.ads.FullScreenContentCallback as FullScreenContentCallback1
 
 class MainActivity : AppCompatActivity() {
 
@@ -25,6 +30,7 @@ class MainActivity : AppCompatActivity() {
     private lateinit var consentInformation: ConsentInformation
     private var isMobileAdsInitializeCalled = AtomicBoolean(false)
     private lateinit var adRequest: AdRequest
+    private var mInterstitialAd: InterstitialAd? = null
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
@@ -37,8 +43,62 @@ class MainActivity : AppCompatActivity() {
             insets
         }
 
+        loadBannerAd()
+
+        loadInterstitialAd()
+
+        binding.button.setOnClickListener{
+
+            if(mInterstitialAd!=null){
+                mInterstitialAd!!.fullScreenContentCallback = object : FullScreenContentCallback1(){
+
+                    override fun onAdDismissedFullScreenContent() {
+                        super.onAdDismissedFullScreenContent()
+                        startActivity(Intent(this@MainActivity, SecondActivity::class.java))
+                    }
+                }
+                mInterstitialAd!!.show(this@MainActivity)
+
+            }
+            else{
+                startActivity(Intent(this@MainActivity, SecondActivity::class.java))
+            }
+        }
+
+
+    }
+
+    private fun loadInterstitialAd() {
+
+        var adRequest = AdRequest.Builder().build()
+
+        InterstitialAd.load(this,"ca-app-pub-3940256099942544/1033173712", adRequest, object : InterstitialAdLoadCallback() {
+            override fun onAdFailedToLoad(adError: LoadAdError) {
+                Toast.makeText(this@MainActivity, adError.message, Toast.LENGTH_SHORT).show()
+               //  Log.d(TAG, adError?.toString())
+                mInterstitialAd = null
+            }
+
+            override fun onAdLoaded(interstitialAd: InterstitialAd) {
+                Toast.makeText(this@MainActivity, "Ad was loaded", Toast.LENGTH_SHORT).show()
+                // Log.d(TAG, 'Ad was loaded.')
+                mInterstitialAd = interstitialAd
+            }
+        })
+
+    }
+
+    private fun loadBannerAd() {
 
         // First Method
+         simplyLoadIt()
+
+        // Second Method
+        // requestConsentInfoUpdate()
+
+    }
+
+    private fun simplyLoadIt() {
 
         // our mobile ads.
         MobileAds.initialize(this)
@@ -47,10 +107,6 @@ class MainActivity : AppCompatActivity() {
         // ad view with the ad request
         binding.adView.loadAd(adRequest)
 
-
-
-        // Second Method
-       // requestConsentInfoUpdate()
 
     }
 
@@ -127,6 +183,7 @@ class MainActivity : AppCompatActivity() {
 
             override fun onAdFailedToLoad(adError : LoadAdError) {
                 // Code to be executed when an ad request fails.
+                Toast.makeText(this@MainActivity, adError.message, Toast.LENGTH_SHORT).show()
             }
 
             override fun onAdImpression() {
@@ -136,6 +193,7 @@ class MainActivity : AppCompatActivity() {
 
             override fun onAdLoaded() {
                 // Code to be executed when an ad finishes loading.
+                Toast.makeText(this@MainActivity, "Ad was loaded", Toast.LENGTH_SHORT).show()
             }
 
             override fun onAdOpened() {
