@@ -5,6 +5,8 @@ import android.content.ContentValues.TAG
 import android.content.Intent
 import android.os.Bundle
 import android.util.Log
+import android.widget.ImageView
+import android.widget.TextView
 import android.widget.Toast
 import androidx.activity.enableEdgeToEdge
 import androidx.appcompat.app.AppCompatActivity
@@ -13,6 +15,7 @@ import androidx.core.view.WindowInsetsCompat
 import com.example.admobkotlin.databinding.ActivityMainBinding
 import com.google.android.gms.ads.AdError
 import com.google.android.gms.ads.AdListener
+import com.google.android.gms.ads.AdLoader
 import com.google.android.gms.ads.AdRequest
 import com.google.android.gms.ads.FullScreenContentCallback
 import com.google.android.gms.ads.LoadAdError
@@ -20,6 +23,9 @@ import com.google.android.gms.ads.MobileAds
 import com.google.android.gms.ads.OnUserEarnedRewardListener
 import com.google.android.gms.ads.interstitial.InterstitialAd
 import com.google.android.gms.ads.interstitial.InterstitialAdLoadCallback
+import com.google.android.gms.ads.nativead.NativeAd
+import com.google.android.gms.ads.nativead.NativeAdOptions
+import com.google.android.gms.ads.nativead.NativeAdView
 import com.google.android.gms.ads.rewarded.RewardItem
 import com.google.android.gms.ads.rewarded.RewardedAd
 import com.google.android.gms.ads.rewarded.RewardedAdLoadCallback
@@ -34,7 +40,7 @@ import java.util.concurrent.atomic.AtomicBoolean
 import com.google.android.gms.ads.FullScreenContentCallback as FullScreenContentCallback1
 
 
-class MainActivity : AppCompatActivity() , OnUserEarnedRewardListener{
+class MainActivity : AppCompatActivity(), OnUserEarnedRewardListener {
 
     private lateinit var binding: ActivityMainBinding
     private lateinit var consentInformation: ConsentInformation
@@ -42,7 +48,8 @@ class MainActivity : AppCompatActivity() , OnUserEarnedRewardListener{
     private lateinit var adRequest: AdRequest
     private var mInterstitialAd: InterstitialAd? = null
     private var rewardedAd: RewardedAd? = null
-    private var rewardedInterstitialAd : RewardedInterstitialAd? = null
+    private var rewardedInterstitialAd: RewardedInterstitialAd? = null
+    private var nativeAd: NativeAd? = null
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
@@ -62,7 +69,8 @@ class MainActivity : AppCompatActivity() , OnUserEarnedRewardListener{
         loadRewardAd()
         loadRewardInterAd()
 
-        binding.btnInter.setOnClickListener{
+
+        binding.btnInter.setOnClickListener {
             showInterstitialAd()
         }
 
@@ -74,7 +82,57 @@ class MainActivity : AppCompatActivity() , OnUserEarnedRewardListener{
             showRewardInterAd()
         }
 
+        binding.btnNative.setOnClickListener {
+            loadNativeAd()
+        }
+
     }
+
+    private fun loadNativeAd() {
+
+
+        val adLoader = AdLoader.Builder(this, "ca-app-pub-3940256099942544/2247696110")
+            .forNativeAd { ad ->
+                // Show the native ad when it's loaded
+                nativeAd = ad
+                val adView = layoutInflater.inflate(R.layout.native_ad_layout, null)
+                val nativeAdView = adView.findViewById<NativeAdView>(R.id.native_ad_view)
+                populateNativeAdView(nativeAd!!, nativeAdView)
+                binding.adContainer.removeAllViews()
+                binding.adContainer.addView(adView)
+            }
+            .withAdListener(object : AdListener() {
+                override fun onAdFailedToLoad(p0: LoadAdError) {
+                    // Handle the failure to load native ad
+                    Toast.makeText(
+                        this@MainActivity,
+                        "Failed to load ad: ${p0.message}",
+                        Toast.LENGTH_SHORT
+                    ).show()
+                }
+            })
+            .withNativeAdOptions(NativeAdOptions.Builder().build())
+            .build()
+
+        adLoader.loadAd(AdRequest.Builder().build())
+    }
+
+    private fun populateNativeAdView(nativeAd: NativeAd, nativeAdView: NativeAdView?) {
+
+        val headlineView = nativeAdView?.findViewById<TextView>(R.id.ad_headline)
+        headlineView?.text = nativeAd?.headline
+
+        val bodyView = nativeAdView?.findViewById<TextView>(R.id.ad_body)
+        bodyView?.text = nativeAd.body
+
+
+
+
+        if (nativeAdView != null) {
+            nativeAdView.setNativeAd(nativeAd)
+        }
+    }
+
 
     private fun showRewardInterAd() {
 
@@ -96,18 +154,18 @@ class MainActivity : AppCompatActivity() , OnUserEarnedRewardListener{
                         object : FullScreenContentCallback() {
                             /** Called when the ad failed to show full screen content.  */
                             override fun onAdFailedToShowFullScreenContent(adError: AdError) {
-                              //  Log.i(TAG, "onAdFailedToShowFullScreenContent")
+                                //  Log.i(TAG, "onAdFailedToShowFullScreenContent")
                                 startActivity(Intent(this@MainActivity, SecondActivity::class.java))
                             }
 
                             /** Called when ad showed the full screen content.  */
                             override fun onAdShowedFullScreenContent() {
-                              //  Log.i(TAG, "onAdShowedFullScreenContent")
+                                //  Log.i(TAG, "onAdShowedFullScreenContent")
                             }
 
                             /** Called when full screen content is dismissed.  */
                             override fun onAdDismissedFullScreenContent() {
-                               // Log.i(TAG, "onAdDismissedFullScreenContent")
+                                // Log.i(TAG, "onAdDismissedFullScreenContent")
                                 startActivity(Intent(this@MainActivity, SecondActivity::class.java))
                                 loadRewardInterAd() // don't know how useful
                             }
@@ -116,7 +174,7 @@ class MainActivity : AppCompatActivity() , OnUserEarnedRewardListener{
 
                 override fun onAdFailedToLoad(adError: LoadAdError) {
                     //Log.d(TAG, adError?.toString())
-                    Toast.makeText(this@MainActivity,  adError.message, Toast.LENGTH_SHORT).show()
+                    Toast.makeText(this@MainActivity, adError.message, Toast.LENGTH_SHORT).show()
                     rewardedInterstitialAd = null
                 }
             })
@@ -128,10 +186,11 @@ class MainActivity : AppCompatActivity() , OnUserEarnedRewardListener{
             ad.show(this, OnUserEarnedRewardListener { rewardItem ->
                 // Handle the reward.
                 // Log.d(TAG, "User earned the reward.")
-                Toast.makeText(this@MainActivity, "User earned the reward." , Toast.LENGTH_SHORT).show()
+                Toast.makeText(this@MainActivity, "User earned the reward.", Toast.LENGTH_SHORT)
+                    .show()
             })
 
-            rewardedAd?.fullScreenContentCallback = object: FullScreenContentCallback1() {
+            rewardedAd?.fullScreenContentCallback = object : FullScreenContentCallback1() {
                 override fun onAdClicked() {
                     // Called when a click is recorded for an ad.
                 }
@@ -168,8 +227,8 @@ class MainActivity : AppCompatActivity() , OnUserEarnedRewardListener{
 
     private fun showInterstitialAd() {
 
-        if(mInterstitialAd!=null){
-            mInterstitialAd!!.fullScreenContentCallback = object : FullScreenContentCallback1(){
+        if (mInterstitialAd != null) {
+            mInterstitialAd!!.fullScreenContentCallback = object : FullScreenContentCallback1() {
 
                 override fun onAdDismissedFullScreenContent() {
                     super.onAdDismissedFullScreenContent()
@@ -178,53 +237,60 @@ class MainActivity : AppCompatActivity() , OnUserEarnedRewardListener{
             }
             mInterstitialAd!!.show(this@MainActivity)
 
-        }
-        else{
+        } else {
             startActivity(Intent(this@MainActivity, SecondActivity::class.java))
         }
     }
 
     private fun loadRewardAd() {
         var adRequest = AdRequest.Builder().build()
-        RewardedAd.load(this,"ca-app-pub-3940256099942544/5224354917", adRequest, object : RewardedAdLoadCallback() {
-            override fun onAdFailedToLoad(adError: LoadAdError) {
-               // Log.d(TAG, adError?.toString())
-               // Toast.makeText(this@MainActivity, adError.message, Toast.LENGTH_SHORT).show()
-                rewardedAd = null
-            }
+        RewardedAd.load(
+            this,
+            "ca-app-pub-3940256099942544/5224354917",
+            adRequest,
+            object : RewardedAdLoadCallback() {
+                override fun onAdFailedToLoad(adError: LoadAdError) {
+                    // Log.d(TAG, adError?.toString())
+                    // Toast.makeText(this@MainActivity, adError.message, Toast.LENGTH_SHORT).show()
+                    rewardedAd = null
+                }
 
-            override fun onAdLoaded(ad: RewardedAd) {
-                //Log.d(TAG, "Ad was loaded.")
-               // Toast.makeText(this@MainActivity, "Ad loaded", Toast.LENGTH_SHORT).show()
-                rewardedAd = ad
-            }
-        })
+                override fun onAdLoaded(ad: RewardedAd) {
+                    //Log.d(TAG, "Ad was loaded.")
+                    // Toast.makeText(this@MainActivity, "Ad loaded", Toast.LENGTH_SHORT).show()
+                    rewardedAd = ad
+                }
+            })
     }
 
     private fun loadInterstitialAd() {
 
         var adRequest = AdRequest.Builder().build()
 
-        InterstitialAd.load(this,"ca-app-pub-3940256099942544/1033173712", adRequest, object : InterstitialAdLoadCallback() {
-            override fun onAdFailedToLoad(adError: LoadAdError) {
-                Toast.makeText(this@MainActivity, adError.message, Toast.LENGTH_SHORT).show()
-               //  Log.d(TAG, adError?.toString())
-                mInterstitialAd = null
-            }
+        InterstitialAd.load(
+            this,
+            "ca-app-pub-3940256099942544/1033173712",
+            adRequest,
+            object : InterstitialAdLoadCallback() {
+                override fun onAdFailedToLoad(adError: LoadAdError) {
+                    Toast.makeText(this@MainActivity, adError.message, Toast.LENGTH_SHORT).show()
+                    //  Log.d(TAG, adError?.toString())
+                    mInterstitialAd = null
+                }
 
-            override fun onAdLoaded(interstitialAd: InterstitialAd) {
-                Toast.makeText(this@MainActivity, "Ad was loaded", Toast.LENGTH_SHORT).show()
-                // Log.d(TAG, 'Ad was loaded.')
-                mInterstitialAd = interstitialAd
-            }
-        })
+                override fun onAdLoaded(interstitialAd: InterstitialAd) {
+                    Toast.makeText(this@MainActivity, "Ad was loaded", Toast.LENGTH_SHORT).show()
+                    // Log.d(TAG, 'Ad was loaded.')
+                    mInterstitialAd = interstitialAd
+                }
+            })
 
     }
 
     private fun loadBannerAd() {
 
         // First Method
-         simplyLoadIt()
+        simplyLoadIt()
 
         // Second Method
         // requestConsentInfoUpdate()
@@ -252,12 +318,13 @@ class MainActivity : AppCompatActivity() , OnUserEarnedRewardListener{
             .build()
 
         // Create a ConsentRequestParameters object.
-       // val params = ConsentRequestParameters.Builder().build()
+        // val params = ConsentRequestParameters.Builder().build()
 
         consentInformation = UserMessagingPlatform.getConsentInformation(this)
         consentInformation.requestConsentInfoUpdate(this@MainActivity, params,
             {
-                UserMessagingPlatform.loadAndShowConsentFormIfRequired(this@MainActivity
+                UserMessagingPlatform.loadAndShowConsentFormIfRequired(
+                    this@MainActivity
                 ) { loadAndShowError ->
                     if (loadAndShowError != null) {
                         // Consent gathering failed.
@@ -284,14 +351,14 @@ class MainActivity : AppCompatActivity() , OnUserEarnedRewardListener{
             },
             { requestConsentError ->
                 // Consent gathering failed.
-               //  Log.w(TAG, "${requestConsentError.errorCode}: ${requestConsentError.message}")
-                Toast.makeText(this,requestConsentError.message,Toast.LENGTH_SHORT).show()
+                //  Log.w(TAG, "${requestConsentError.errorCode}: ${requestConsentError.message}")
+                Toast.makeText(this, requestConsentError.message, Toast.LENGTH_SHORT).show()
             })
     }
 
-    private fun loadAds(){
-        if(consentInformation.canRequestAds() && isMobileAdsInitializeCalled.getAndSet(true)){
-            MobileAds.initialize(this){
+    private fun loadAds() {
+        if (consentInformation.canRequestAds() && isMobileAdsInitializeCalled.getAndSet(true)) {
+            MobileAds.initialize(this) {
                 callBack()
             }
 
@@ -300,8 +367,8 @@ class MainActivity : AppCompatActivity() , OnUserEarnedRewardListener{
         }
     }
 
-    private fun callBack(){
-        binding.adView.adListener = object: AdListener() {
+    private fun callBack() {
+        binding.adView.adListener = object : AdListener() {
             override fun onAdClicked() {
                 // Code to be executed when the user clicks on an ad.
             }
@@ -311,7 +378,7 @@ class MainActivity : AppCompatActivity() , OnUserEarnedRewardListener{
                 // to the app after tapping on an ad.
             }
 
-            override fun onAdFailedToLoad(adError : LoadAdError) {
+            override fun onAdFailedToLoad(adError: LoadAdError) {
                 // Code to be executed when an ad request fails.
                 Toast.makeText(this@MainActivity, adError.message, Toast.LENGTH_SHORT).show()
             }
@@ -334,6 +401,6 @@ class MainActivity : AppCompatActivity() , OnUserEarnedRewardListener{
     }
 
     override fun onUserEarnedReward(p0: RewardItem) {
-        Toast.makeText(this@MainActivity,  "User earned reward.", Toast.LENGTH_SHORT).show()
+        Toast.makeText(this@MainActivity, "User earned reward.", Toast.LENGTH_SHORT).show()
     }
 }
